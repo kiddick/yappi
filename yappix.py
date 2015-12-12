@@ -35,11 +35,14 @@ def set_webhook():
     with open(os.path.join(__location__, 'ngrok.host'), 'r') as nh:
         webhook_url = nh.read()
     print webhook_url
-    s = bot.setWebhook('https://{}/ya'.format(webhook_url))
+    s = bot.setWebhook(webhook_url='https://{}/ya'.format(webhook_url))
     if s:
         return "webhook setup ok"
     else:
         return "webhook setup failed"
+
+def unset_webhook():
+    bot.setWebhook(webhook_url=None)
 
 
 @app.route('/')
@@ -70,11 +73,13 @@ def get_updates():
         else:
             last_update_id = get_last_update_id()
 
+if not DEBUG:
+    set_webhook()
 
 if __name__ == '__main__':
     if DEBUG:
+        unset_webhook()
         get_updates()
     else:
-        set_webhook()
         app.run(host='0.0.0.0')
 

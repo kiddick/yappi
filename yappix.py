@@ -6,7 +6,10 @@ from flask import Flask, request
 app = Flask(__name__)
 app.config.from_object(os.environ['APP_SETTINGS'])
 
-DEBUG = True
+__location__ = os.path.realpath(
+    os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
+DEBUG = False
 
 
 global bot
@@ -24,12 +27,15 @@ def webhook_handler():
                 chat_id=chat_id, text=text, parse_mode=telegram.ParseMode.MARKDOWN)
         return 'ok'
     except Exception as e:
-        pass
+        raise
 
 
 @app.route('/set_webhook', methods=['GET', 'POST'])
 def set_webhook():
-    s = bot.setWebhook('')
+    with open(os.path.join(__location__, 'ngrok.host'), 'r') as nh:
+        webhook_url = nh.read()
+    print webhook_url
+    s = bot.setWebhook('https://{}/ya'.format(webhook_url))
     if s:
         return "webhook setup ok"
     else:
@@ -69,4 +75,6 @@ if __name__ == '__main__':
     if DEBUG:
         get_updates()
     else:
+        set_webhook()
         app.run(host='0.0.0.0')
+

@@ -1,3 +1,7 @@
 *.pyc
+*.log
 
 settings.yaml
+logs
+ngrok.host
+ngrok

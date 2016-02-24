@@ -1,5 +1,6 @@
 import os
-
+import requests
+import json
 import telegram
 from flask import Flask, request
 
@@ -9,12 +10,43 @@ app.config.from_object(os.environ['APP_SETTINGS'])
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-DEBUG = False
+DEBUG = app.config['DEBUG']
 
 
 global bot
 bot = telegram.Bot(token=app.config['BOT_TOKEN'])
 
+
+def handle_message(msg, chat_id):
+    if msg.startswith('/tr'):
+        bot.sendMessage(
+            chat_id, get_word(msg[4:]),
+            parse_mode=telegram.ParseMode.MARKDOWN
+        )
+
+
+def get_word(src):
+    ykey = app.config['YANDEX_KEY']
+    data = requests.get(
+        'https://dictionary.yandex.net/api/v1/dicservice.json/lookup?key=' + ykey + '&lang=en-ru&text=' + src)
+    json_dump = json.loads(data.text)
+    res = ''
+    delimeter = '\n'
+    nbsp = u'\xa0'
+    for _, topic in enumerate(json_dump['def']):
+        res += '_{0}_{1}'.format(topic['pos'], delimeter)
+        for tr in topic['tr']:
+            res += '*' + 4 * nbsp + tr['text'] + '*' + delimeter
+            if 'ex' in tr:
+                res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
+                    '//'.join([etr['text']
+                               for etr in tr['ex'][0]['tr']]) + delimeter
+    with open('query_list.log', 'a') as query_list:
+        query_list.write(src + '\n')
+    return res
+
+
+#######
 
 @app.route('/ya', methods=['POST'])
 def webhook_handler():
@@ -41,6 +73,7 @@ def set_webhook():
     else:
         return "webhook setup failed"
 
+
 def unset_webhook():
     bot.setWebhook(webhook_url=None)
 
@@ -65,11 +98,11 @@ def get_updates():
                 chat_id = update.message.chat_id
                 update_id = update.update_id
 
-                bot.sendMessage(chat_id=chat_id, text=text)
+                handle_message(text, chat_id)
                 last_update_id = update_id + 1
-                if text == 'exit':
-                    bot.getUpdates(offset=last_update_id)
-                    return
+                # if text == 'exit':
+                #     bot.getUpdates(offset=last_update_id)
+                #     return
         else:
             last_update_id = get_last_update_id()
 
@@ -82,4 +115,3 @@ if __name__ == '__main__':
         get_updates()
     else:
         app.run(host='0.0.0.0')
-

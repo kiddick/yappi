@@ -11,6 +11,7 @@ class Config(object):
     DEBUG = False
     TESTING = False
     BOT_TOKEN = settings['bot_token']
+    YANDEX_KEY = settings['yandex_key']
 
 
 class DevelopmentConfig(Config):

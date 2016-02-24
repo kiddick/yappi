@@ -53,10 +53,12 @@ def webhook_handler():
     try:
         if request.method == "POST":
             update = telegram.Update.de_json(request.get_json(force=True))
+            text = update.message.text
             chat_id = update.message.chat.id
-            text = '*`' + update.message.text.encode('utf-8') + '`*'
-            bot.sendMessage(
-                chat_id=chat_id, text=text, parse_mode=telegram.ParseMode.MARKDOWN)
+
+            handle_message(text, chat_id)
+
+
         return 'ok'
     except Exception as e:
         raise

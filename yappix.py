@@ -110,13 +110,14 @@ def get_updates():
 if not DEBUG:
     set_webhook()
 
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG,
+    filename='bot.log'
+)
+logging.debug('>>> Bot is started!\n')
+
 if __name__ == '__main__':
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.DEBUG,
-        filename='bot.log'
-    )
-    logging.debug('\nBot is started!')
     if DEBUG:
         unset_webhook()
         get_updates()

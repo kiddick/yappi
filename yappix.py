@@ -1,4 +1,5 @@
 import os
+import logging
 import requests
 import json
 import telegram
@@ -19,10 +20,13 @@ bot = telegram.Bot(token=app.config['BOT_TOKEN'])
 
 def handle_message(msg, chat_id):
     if msg.startswith('/tr'):
-        bot.sendMessage(
-            chat_id, get_word(msg[4:]),
-            parse_mode=telegram.ParseMode.MARKDOWN
-        )
+        translate = get_word(msg[4:])
+        if translate:
+            bot.sendMessage(
+                chat_id,
+                translate,
+                parse_mode=telegram.ParseMode.MARKDOWN
+            )
 
 
 def get_word(src):
@@ -30,6 +34,8 @@ def get_word(src):
     data = requests.get(
         'https://dictionary.yandex.net/api/v1/dicservice.json/lookup?key=' + ykey + '&lang=en-ru&text=' + src)
     json_dump = json.loads(data.text)
+    if not json_dump:
+        return
     res = ''
     delimeter = '\n'
     nbsp = u'\xa0'
@@ -55,11 +61,7 @@ def webhook_handler():
             update = telegram.Update.de_json(request.get_json(force=True))
             text = update.message.text
             chat_id = update.message.chat.id
-
             handle_message(text, chat_id)
-
-
-        return 'ok'
     except Exception as e:
         raise
 
@@ -102,9 +104,6 @@ def get_updates():
 
                 handle_message(text, chat_id)
                 last_update_id = update_id + 1
-                # if text == 'exit':
-                #     bot.getUpdates(offset=last_update_id)
-                #     return
         else:
             last_update_id = get_last_update_id()
 
@@ -112,6 +111,12 @@ if not DEBUG:
     set_webhook()
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.DEBUG,
+        filename='bot.log'
+    )
+    logging.debug('\nBot is started!')
     if DEBUG:
         unset_webhook()
         get_updates()

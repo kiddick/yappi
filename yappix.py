@@ -21,12 +21,13 @@ bot = telegram.Bot(token=app.config['BOT_TOKEN'])
 def handle_message(msg, chat_id):
     if msg.startswith('/tr'):
         translate = get_word(msg[4:])
-        if translate:
-            bot.sendMessage(
-                chat_id,
-                translate,
-                parse_mode=telegram.ParseMode.MARKDOWN
-            )
+        if not translate:
+            translate = "Sorry, can't find anything for *{0}*.".format(msg[4:])
+        bot.sendMessage(
+            chat_id,
+            translate,
+            parse_mode=telegram.ParseMode.MARKDOWN
+        )
 
 
 def get_word(src):
@@ -42,7 +43,8 @@ def get_word(src):
     for _, topic in enumerate(json_dump['def']):
         res += '_{0}_{1}'.format(topic['pos'], delimeter)
         for tr in topic['tr']:
-            res += '*' + 4 * nbsp + tr['text'] + '*' + delimeter
+            res += u'*{nbsps}{text}*{delimeter}'.format(
+                nbsps=4 * nbsp, text=tr['text'], delimeter=delimeter)
             if 'ex' in tr:
                 res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
                     '//'.join([etr['text']

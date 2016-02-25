@@ -62,6 +62,7 @@ def webhook_handler():
             text = update.message.text
             chat_id = update.message.chat.id
             handle_message(text, chat_id)
+        return 'ok'
     except Exception as e:
         raise
 

@@ -18,16 +18,33 @@ global bot
 bot = telegram.Bot(token=app.config['BOT_TOKEN'])
 
 
-def handle_message(msg, chat_id):
+def prepare_message(msg):
     if msg.startswith('/tr'):
-        translate = get_word(msg[4:])
+        msg = msg[4:]
+        if not msg:
+            return 'Your request is empty. Try again.'
+        check = msg.replace('`', '')
+        if not check:
+            msg = 'tilde(s)'
+        else:
+            msg = check
+        try:
+            translate = get_word(msg)
+        except Exception as err:
+            logging.debug(str(err))
+            translate = 'Sorry, something went wrong!'
         if not translate:
-            translate = "Sorry, can't find anything for *{0}*.".format(msg[4:])
-        bot.sendMessage(
-            chat_id,
-            translate,
-            parse_mode=telegram.ParseMode.MARKDOWN
-        )
+            translate = u"Sorry, can't find anything for `{}`."
+        else:
+            translate = '`{}`\n' + translate
+        return translate.format(msg)
+
+def handle_message(msg, chat_id):
+    bot.sendMessage(
+        chat_id,
+        prepare_message(msg),
+        parse_mode=telegram.ParseMode.MARKDOWN
+    )    
 
 
 def get_word(src):
@@ -37,6 +54,7 @@ def get_word(src):
     json_dump = json.loads(data.text)
     if not json_dump:
         return
+    # res = '*-> {}*\n'.format(src)
     res = ''
     delimeter = '\n'
     nbsp = u'\xa0'
@@ -50,7 +68,10 @@ def get_word(src):
                     '//'.join([etr['text']
                                for etr in tr['ex'][0]['tr']]) + delimeter
     with open('query_list.log', 'a') as query_list:
-        query_list.write(src + '\n')
+        try:
+            query_list.write(src + '\n')
+        except UnicodeEncodeError as err:
+            logging.debug(str(err))
     return res
 
 

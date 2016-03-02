@@ -3,6 +3,7 @@ import logging
 import requests
 import json
 import telegram
+import pyaspeller
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -18,6 +19,16 @@ global bot
 bot = telegram.Bot(token=app.config['BOT_TOKEN'])
 
 
+def answer_spellcheck(spellcheck, translate):
+    if spellcheck:
+        if not spellcheck.correct:
+            if spellcheck.spellsafe:
+                if translate:
+                    return '    _Your request was corrected!_\n' + translate
+                return '    _Your request was corrected!_\n'
+    return translate
+
+
 def prepare_message(msg):
     if msg.startswith('/tr'):
         msg = msg[4:]
@@ -29,22 +40,32 @@ def prepare_message(msg):
         else:
             msg = check
         try:
+            spellcheck = pyaspeller.Word(msg)
+            if spellcheck.spellsafe:
+                msg = spellcheck.spellsafe
+        except Exception as err:
+            logging.debug(str(err))
+            spellcheck = None
+        try:
             translate = get_word(msg)
         except Exception as err:
             logging.debug(str(err))
             translate = 'Sorry, something went wrong!'
         if not translate:
-            translate = u"Sorry, can't find anything for `{}`."
+            translate = answer_spellcheck(spellcheck, translate)
+            translate = translate + u"Sorry, can't find anything for `{}`."
         else:
+            translate = answer_spellcheck(spellcheck, translate)
             translate = '`{}`\n' + translate
         return translate.format(msg)
+
 
 def handle_message(msg, chat_id):
     bot.sendMessage(
         chat_id,
         prepare_message(msg),
         parse_mode=telegram.ParseMode.MARKDOWN
-    )    
+    )
 
 
 def get_word(src):

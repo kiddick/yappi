@@ -61,11 +61,14 @@ def prepare_message(msg):
 
 
 def handle_message(msg, chat_id):
-    bot.sendMessage(
-        chat_id,
-        prepare_message(msg),
-        parse_mode=telegram.ParseMode.MARKDOWN
-    )
+    try:
+        bot.sendMessage(
+            chat_id,
+            prepare_message(msg),
+            parse_mode=telegram.ParseMode.MARKDOWN
+        )
+    except Exception as err:
+        logging.exception(str(err))
 
 
 def get_word(src):

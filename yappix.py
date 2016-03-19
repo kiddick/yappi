@@ -1,10 +1,9 @@
 import os
 import logging
-import requests
-import json
-import telegram
-import pyaspeller
 from flask import Flask, request
+
+import telegram
+import yadict
 
 app = Flask(__name__)
 app.config.from_object(os.environ['APP_SETTINGS'])
@@ -14,92 +13,23 @@ __location__ = os.path.realpath(
 
 DEBUG = app.config['DEBUG']
 
+yadict.YKEY = app.config['YANDEX_KEY']
+
 
 global bot
 bot = telegram.Bot(token=app.config['BOT_TOKEN'])
-
-
-def answer_spellcheck(spellcheck, translate):
-    if spellcheck:
-        if not spellcheck.correct:
-            if spellcheck.spellsafe:
-                if translate:
-                    return '    _Your request was corrected!_\n' + translate
-                return '    _Your request was corrected!_\n'
-    return translate
-
-
-def prepare_message(msg):
-    if msg.startswith('/tr'):
-        msg = msg[4:]
-        if not msg:
-            return 'Your request is empty. Try again.'
-        check = msg.replace('`', '')
-        if not check:
-            msg = 'tilde(s)'
-        else:
-            msg = check
-        try:
-            spellcheck = pyaspeller.Word(msg)
-            if spellcheck.spellsafe:
-                msg = spellcheck.spellsafe
-        except Exception as err:
-            logging.debug(str(err))
-            spellcheck = None
-        try:
-            translate = get_word(msg)
-        except Exception as err:
-            logging.debug(str(err))
-            translate = 'Sorry, something went wrong!'
-        if not translate:
-            translate = answer_spellcheck(spellcheck, translate)
-            translate = translate + u"Sorry, can't find anything for `{}`."
-        else:
-            translate = answer_spellcheck(spellcheck, translate)
-            translate = '`{}`\n' + translate
-        return translate.format(msg)
 
 
 def handle_message(msg, chat_id):
     try:
         bot.sendMessage(
             chat_id,
-            prepare_message(msg),
+            yadict.prepare_message(msg),
             parse_mode=telegram.ParseMode.MARKDOWN
         )
     except Exception as err:
         logging.exception(str(err))
 
-
-def get_word(src):
-    ykey = app.config['YANDEX_KEY']
-    data = requests.get(
-        'https://dictionary.yandex.net/api/v1/dicservice.json/lookup?key=' + ykey + '&lang=en-ru&text=' + src)
-    json_dump = json.loads(data.text)
-    if not json_dump:
-        return
-    # res = '*-> {}*\n'.format(src)
-    res = ''
-    delimeter = '\n'
-    nbsp = u'\xa0'
-    for _, topic in enumerate(json_dump['def']):
-        res += '_{0}_{1}'.format(topic['pos'], delimeter)
-        for tr in topic['tr']:
-            res += u'*{nbsps}{text}*{delimeter}'.format(
-                nbsps=4 * nbsp, text=tr['text'], delimeter=delimeter)
-            if 'ex' in tr:
-                res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
-                    '//'.join([etr['text']
-                               for etr in tr['ex'][0]['tr']]) + delimeter
-    with open('query_list.log', 'a') as query_list:
-        try:
-            query_list.write(src + '\n')
-        except UnicodeEncodeError as err:
-            logging.debug(str(err))
-    return res
-
-
-#######
 
 @app.route('/ya', methods=['POST'])
 def webhook_handler():
@@ -110,7 +40,7 @@ def webhook_handler():
             chat_id = update.message.chat.id
             handle_message(text, chat_id)
         return 'ok'
-    except Exception as e:
+    except Exception:
         raise
 
 

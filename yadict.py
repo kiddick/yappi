@@ -6,10 +6,11 @@ import logging
 import requests
 
 import pyaspeller
+import config
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-YKEY = ''
+YKEY = config.Config.YKEY
 ENDPOINT = 'https://dictionary.yandex.net/api/v1/dicservice.json/lookup?'
 
 
@@ -24,34 +25,32 @@ def answer_spellcheck(spellcheck, translate):
 
 
 def prepare_message(msg):
-    if msg.startswith('/tr'):
-        msg = msg[4:]
-        if not msg:
-            return 'Your request is empty. Try again.'
-        check = msg.replace('`', '')
-        if not check:
-            msg = 'tilde(s)'
-        else:
-            msg = check
-        try:
-            spellcheck = pyaspeller.Word(msg)
-            if spellcheck.spellsafe:
-                msg = spellcheck.spellsafe
-        except Exception as err:
-            logging.exception(str(err))
-            spellcheck = None
-        try:
-            translate = get_word(msg)
-        except Exception as err:
-            logging.exception(str(err))
-            translate = 'Sorry, something went wrong!'
-        if not translate:
-            translate = answer_spellcheck(spellcheck, translate)
-            translate = translate + u"Sorry, can't find anything for `{}`."
-        else:
-            translate = answer_spellcheck(spellcheck, translate)
-            translate = '`{}`\n' + translate
-        return translate.format(msg)
+    if not msg:
+        return 'Your request is empty. Try again.'
+    check = ' '.join(msg).replace('`', '')
+    if not check:
+        msg = 'tilde(s)'
+    else:
+        msg = check
+    try:
+        spellcheck = pyaspeller.Word(msg)
+        if spellcheck.spellsafe:
+            msg = spellcheck.spellsafe
+    except Exception as err:
+        logging.exception(str(err))
+        spellcheck = None
+    try:
+        translate = get_word(msg)
+    except Exception as err:
+        logging.exception(str(err))
+        translate = 'Sorry, something went wrong!'
+    if not translate:
+        translate = answer_spellcheck(spellcheck, translate)
+        translate = translate + u"Sorry, can't find anything for `{}`."
+    else:
+        translate = answer_spellcheck(spellcheck, translate)
+        translate = '`{}`\n' + translate
+    return translate.format(msg)
 
 
 def get_word(src):

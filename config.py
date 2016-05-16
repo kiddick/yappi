@@ -1,19 +1,15 @@
 import os
+
 import yaml
 
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+__location__ = os.path.realpath(
+    os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-with open(os.path.join(__location__, 'settings.yaml')) as yaml_settings:
-    settings = yaml.load(yaml_settings)
+with open(os.path.join(__location__, 'settings.yaml')) as ysttgs:
+    settings = yaml.load(ysttgs)
 
 
 class Config(object):
-    DEBUG = False
-    TESTING = False
-    BOT_TOKEN = settings['bot_token']
-    YANDEX_KEY = settings['yandex_key']
-
-
-class DevelopmentConfig(Config):
-    DEVELOPMENT = True
-    DEBUG = True
+    DEBUG = settings['debug']
+    BTOKEN = settings['bot_token']
+    YKEY = settings['yandex_key']

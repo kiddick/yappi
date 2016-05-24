@@ -25,7 +25,7 @@ def handle_message(bot, update, args):
 
 updater = Updater(config.Config.BTOKEN, job_queue_tick_interval=60 * 60)
 
-updater.dispatcher.add_handler(CommandHandler('tr', handle_message))
+updater.dispatcher.add_handler(CommandHandler('tr', handle_message, pass_args=True))
 
 updater.start_polling()
 updater.idle()

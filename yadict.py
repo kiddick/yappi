@@ -3,15 +3,30 @@ This module provides API functionality for yandex lingvo services.
 """
 
 import logging
+import random
 import requests
+import json
 
 import pyaspeller
 import config
+
+from pony.orm import *
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 YKEY = config.Config.YKEY
 ENDPOINT = 'https://dictionary.yandex.net/api/v1/dicservice.json/lookup?'
+
+db = Database()
+db.bind('sqlite', 'yappi.db', create_db=True)
+
+
+class Record(db.Entity):
+    request = Required(str)
+    raw = Required(str)
+    counter = Required(int)
+
+db.generate_mapping(create_tables=True)
 
 
 def answer_spellcheck(spellcheck, translate):
@@ -59,8 +74,11 @@ def get_word(src):
             {'key': YKEY, 'lang': 'en-ru', 'text': src})
     )
     json_dump = data.json()
-    if not json_dump:
-        return
+    if not json_dump['def']:
+        return ''
+    with db_session:
+        if not exists(r for r in Record if r.request == src):
+            Record(request=src, raw=data.text, counter=1)
     res = ''
     delimeter = '\n'
     nbsp = u'\xa0'
@@ -79,3 +97,26 @@ def get_word(src):
         except UnicodeEncodeError as err:
             logging.exception(str(err))
     return res
+
+
+class Word(object):
+    def __init__(self, data):
+        self.definitions = [Defenition(d) for d in data['def']]
+
+
+class Defenition(object):
+    def __init__(self, data):
+        self.text = data['text']
+        self.translition = data['tr'][0]['text']
+        self.part_of_speech = data['pos']
+        self.transcription = data.get('ts')
+
+
+@db_session
+def guess():
+    tmp = select(r for r in Record)[:]
+    ind, source = random.choice(list(enumerate(tmp)))
+    variants = random.sample(tmp[0:ind] + tmp[ind:], 3)
+    source = Word(json.loads(source.raw))
+    variants = [Word(json.loads(el.raw)).definitions[0].translition for el in variants]
+    return tuple([source.definitions[0].translition] + variants)

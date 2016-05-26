@@ -23,9 +23,14 @@ def handle_message(bot, update, args):
     except Exception as err:
         logging.exception(str(err))
 
+def ask(bot, update):
+    bot.sendMessage(update.message.chat_id,
+        ' '.join(yadict.guess()))
+
 updater = Updater(config.Config.BTOKEN, job_queue_tick_interval=60 * 60)
 
 updater.dispatcher.add_handler(CommandHandler('tr', handle_message, pass_args=True))
+updater.dispatcher.add_handler(CommandHandler('q', ask))
 
 updater.start_polling()
 updater.idle()

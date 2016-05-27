@@ -119,4 +119,4 @@ def guess():
     variants = random.sample(tmp[0:ind] + tmp[ind:], 3)
     source = Word(json.loads(source.raw))
     variants = [Word(json.loads(el.raw)).definitions[0].translition for el in variants]
-    return tuple([source.definitions[0].translition] + variants)
+    return source.definitions[0].text, source.definitions[0].translition, variants

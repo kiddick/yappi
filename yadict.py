@@ -116,7 +116,7 @@ class Defenition(object):
 def guess():
     tmp = select(r for r in Record)[:]
     ind, source = random.choice(list(enumerate(tmp)))
-    variants = random.sample(tmp[0:ind] + tmp[ind:], 3)
-    source = Word(json.loads(source.raw))
+    variants = random.sample(tmp[0:ind] + tmp[ind + 1:], 3)
+    source = Word(json.loads(source.raw)).definitions[0]
     variants = [Word(json.loads(el.raw)).definitions[0].translition for el in variants]
-    return source.definitions[0].text, source.definitions[0].translition, variants
+    return source.text, source.translition, variants

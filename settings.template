@@ -1,3 +1,4 @@
-bot_token: 
-draft_repo: 
-github_token: 
+bot_token: bot_token
+yandex_key: dict.yandex_key
+db_name: 'dictionary.db'
+debug: True

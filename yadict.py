@@ -29,7 +29,9 @@ def answer_spellcheck(spellcheck, translate):
 def prepare_message(msg):
     if not msg:
         return 'Your request is empty. Try again.'
-    check = msg.replace('`', '')
+    if isinstance(msg,  list):
+        msg = ' '.join(msg)
+    check = str(msg).replace('`', '')
     if not check:
         msg = 'tilde(s)'
     else:

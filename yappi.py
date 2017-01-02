@@ -1,3 +1,4 @@
+from functools import partial
 import logging
 import re
 
@@ -7,6 +8,8 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 
 import yadict
 import config
+
+from models import CallbackEntity
 
 if config.Config.DEBUG:
     logging.basicConfig(
@@ -29,14 +32,16 @@ class AnswerOption(object):
 class MessageTemplate(object):
     TRANSLATE = 'Would you like to translate it?'
     SKIP = 'Nevermind'
+    CALLBACK_DATA_MISSING = 'Can\'t identify your request :('
 
 
 def encode_callback_data(answer_option, data):
-    return '{}@{}'.format(answer_option, data)
+    return '{}@{}'.format(answer_option, CallbackEntity.create(data=data))
 
 
 def decode_callback_data(callback_data):
-    return re.sub(r'^\d+@', '', callback_data)
+    index = int(callback_data.split('@')[1])
+    return CallbackEntity.get_callback(index)
 
 
 def decode_answer_option(callback_data):
@@ -65,11 +70,12 @@ def edit_message(bot, update, text):
 
 def handle_text(bot, update):
     user_message = update.message.text
-    encoded_task = encode_callback_data(AnswerOption.TRANSLATE, user_message)
+    encode_translate = encode_callback_data(AnswerOption.TRANSLATE, user_message)
+    encode_skip = encode_callback_data(AnswerOption.SKIP, user_message)
 
     keyboard = [[
-        Button('tr', callback_data=encoded_task),
-        Button('skip', callback_data=AnswerOption.SKIP)
+        Button('tr', callback_data=encode_translate),
+        Button('skip', callback_data=encode_skip)
     ]]
     markup = InlineKeyboardMarkup(keyboard)
 
@@ -81,18 +87,20 @@ def handle_text(bot, update):
 
 
 def handle_message_dialog(bot, update, answer):
+    reply = partial(edit_message, bot, update)
     callback_data = update.callback_query.data
+    content = decode_callback_data(callback_data)
+
+    if not content:
+        reply(MessageTemplate.CALLBACK_DATA_MISSING)
 
     # translate request
-    if answer == AnswerOption.TRANSLATE:
-        content = decode_callback_data(callback_data)
+    elif answer == AnswerOption.TRANSLATE:
         chat_id = update.callback_query.message.chat_id
-        reply_text = yadict.prepare_message(content)
+        reply(yadict.prepare_message(content))
 
     elif answer == AnswerOption.SKIP:
-        reply_text = MessageTemplate.SKIP
-
-    edit_message(bot, update, reply_text)
+        reply(MessageTemplate.SKIP)
 
 
 def callback_handler(bot, update):

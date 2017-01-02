@@ -13,6 +13,24 @@ class BaseModel(Model):
         database = db
 
 
+class CallbackEntity(BaseModel):
+    data = CharField()
+
+    @classmethod
+    def create(cls, **query):
+        inst = super().create(**query)
+        return inst.id
+
+    @classmethod
+    def get_callback(cls, index):
+        query = CallbackEntity.select().where(CallbackEntity.id == index)
+        if not query:
+            return
+        data = query[0].data
+        query[0].delete_instance()
+        return data
+
+
 class Request(BaseModel):
     content = CharField(default='')
     raw = CharField(default='')
@@ -42,7 +60,7 @@ class Request(BaseModel):
 
 def create_tables():
     with db.transaction():
-        for model in [Request]:
+        for model in [CallbackEntity, Request]:
             if not model.table_exists():
                 db.create_table(model)
 

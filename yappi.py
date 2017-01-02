@@ -35,8 +35,12 @@ class MessageTemplate(object):
     CALLBACK_DATA_MISSING = 'Can\'t identify your request :('
 
 
-def encode_callback_data(answer_option, data):
-    return '{}@{}'.format(answer_option, CallbackEntity.create(data=data))
+def save_callback_data(data):
+    return CallbackEntity.create(data=data)
+
+
+def encode_callback_data(answer_option, index):
+    return '{}@{}'.format(answer_option, index)
 
 
 def decode_callback_data(callback_data):
@@ -70,8 +74,9 @@ def edit_message(bot, update, text):
 
 def handle_text(bot, update):
     user_message = update.message.text
-    encode_translate = encode_callback_data(AnswerOption.TRANSLATE, user_message)
-    encode_skip = encode_callback_data(AnswerOption.SKIP, user_message)
+    data_id = save_callback_data(user_message)
+    encode_translate = encode_callback_data(AnswerOption.TRANSLATE, data_id)
+    encode_skip = encode_callback_data(AnswerOption.SKIP, data_id)
 
     keyboard = [[
         Button('tr', callback_data=encode_translate),

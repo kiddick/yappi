@@ -27,38 +27,69 @@ def answer_spellcheck(spellcheck, translate):
     return translate
 
 
-def prepare_message(msg, user):
-    if not msg:
-        return 'Your request is empty. Try again.'
-    if isinstance(msg,  list):
-        msg = ' '.join(msg)
-    check = str(msg).replace('`', '')
-    if not check:
-        msg = 'tilde(s)'
-    else:
-        msg = check
+def check_spelling(data):
     try:
-        spellcheck = pyaspeller.Word(msg)
+        spellcheck = pyaspeller.Word(data)
         if spellcheck.spellsafe:
-            msg = spellcheck.spellsafe
+            data = spellcheck.spellsafe
     except Exception as err:
         logging.exception(str(err))
         spellcheck = None
+
+    return data, spellcheck
+
+
+def normalize(data):
+    if isinstance(data,  list):
+        data = ' '.join(data)
+    check = str(data).replace('`', '')
+    if not check:
+        data = 'tilde(s)'
+    else:
+        data = check
+
+    return data
+
+
+def prepare_message(msg):
+    warning = False
+    if not msg:
+        warning = True
+        return 'Your request is empty. Try again.', warning
+    msg, spellcheck = check_spelling(normalize(msg))
     try:
-        translate = get_word(msg, user)
+        translate = get_word(msg)
     except Exception as err:
         logging.exception(str(err))
         translate = 'Sorry, something went wrong!'
+        warning = True
     if not translate:
         translate = answer_spellcheck(spellcheck, translate)
         translate = translate + u"Sorry, can't find anything for `{}`."
+        warning = True
     else:
         translate = answer_spellcheck(spellcheck, translate)
         translate = '`{}`\n' + translate
-    return translate.format(msg)
+    return translate.format(msg), warning
 
 
-def get_word(src, user):
+def format_dict_message(data):
+    res = ''
+    delimeter = '\n'
+    nbsp = u'\xa0'
+    for _, topic in enumerate(data):
+        res += '_{0}_{1}'.format(topic['pos'], delimeter)
+        for tr in topic['tr']:
+            res += u'*{nbsps}{text}*{delimeter}'.format(
+                nbsps=4 * nbsp, text=tr['text'], delimeter=delimeter)
+            if 'ex' in tr:
+                res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
+                    '//'.join([etr['text']
+                               for etr in tr['ex'][0]['tr']]) + delimeter
+    return res
+
+
+def get_word(src):
     request = Request.get_request(content=src)
     if request:
         data = request.raw
@@ -69,23 +100,12 @@ def get_word(src, user):
                 {'key': YKEY, 'lang': 'en-ru', 'text': src})
         )
         json_dump = data.json()
-    if not json_dump['def']:
+    defenition = json_dump['def']
+    if not defenition:
         return ''
     if not request:
-        Request.create(content=src, raw=data.text, user=user)
-    res = ''
-    delimeter = '\n'
-    nbsp = u'\xa0'
-    for _, topic in enumerate(json_dump['def']):
-        res += '_{0}_{1}'.format(topic['pos'], delimeter)
-        for tr in topic['tr']:
-            res += u'*{nbsps}{text}*{delimeter}'.format(
-                nbsps=4 * nbsp, text=tr['text'], delimeter=delimeter)
-            if 'ex' in tr:
-                res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
-                    '//'.join([etr['text']
-                               for etr in tr['ex'][0]['tr']]) + delimeter
-    return res
+        request = Request.create(content=src, raw=data.text)
+    return format_dict_message(defenition)
 
 
 class Word(object):

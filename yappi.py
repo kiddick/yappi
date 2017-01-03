@@ -1,15 +1,18 @@
+"""
+A main module with Yappi translator bot powered by Telegram Bot API.
+"""
+
 from functools import partial
 import logging
-import re
 
 from telegram import InlineKeyboardButton as Button
-from telegram import InlineKeyboardMarkup, ParseMode
+from telegram import Emoji, InlineKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 
 import yadict
 import config
 
-from models import CallbackEntity, Request, User
+from models import CallbackEntity, Request, User, Chat, FirstRequest
 
 if config.Config.DEBUG:
     logging.basicConfig(
@@ -34,6 +37,7 @@ class MessageTemplate(object):
     SKIP = 'Nevermind'
     CALLBACK_DATA_MISSING = 'Can\'t identify your request :('
     USER_STATS_LINE = '*{}:* {}'
+    ALREADY_REQUESTED = 'You\'ve already requested that! :D'
 
 
 def save_callback_data(data):
@@ -57,6 +61,7 @@ def userify(func):
     def wrapper(*args, **kwargs):
         update = args[1]
         request = update.callback_query or update.message
+        # update.callback_query.message.chat_id,
         tid = request.from_user.id
         name = request.from_user.first_name
         user = User.create(tid=tid, name=name)
@@ -65,26 +70,71 @@ def userify(func):
     return wrapper
 
 
-@userify
-def handle_message(bot, update, args, **kwargs):
-    user = kwargs['user']
-    try:
-        bot.sendMessage(
-            update.message.chat_id,
-            yadict.prepare_message(args, user),
-            parse_mode=ParseMode.MARKDOWN
-        )
-    except Exception as err:
-        logging.exception(str(err))
+def chatify(func):
+    def wrapper(*args, **kwargs):
+        update = args[1]
+        request = update.callback_query or update
+        chat_id = request.message.chat_id
+        chat = Chat.create(chat_id=chat_id)
+        kwargs['chat'] = chat
+        return func(*args, **kwargs)
+    return wrapper
 
 
 def edit_message(bot, update, text):
-    bot.editMessageText(
+    return bot.edit_message_text(
         text=text,
         chat_id=update.callback_query.message.chat_id,
         message_id=update.callback_query.message.message_id,
         parse_mode=ParseMode.MARKDOWN
     )
+
+
+def send_message(bot, update, text):
+    return bot.send_message(
+        chat_id=update.message.chat_id,
+        text=text,
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+
+def translate(content, user, chat, bot, reply):
+    content, _ = yadict.check_spelling(yadict.normalize(content))
+    request = Request.get_request(content=content)
+    create_first_request = True
+    if request:
+        first = FirstRequest.get_first_request(request, chat)
+        if first:
+            # reply_to_previous_message
+            reply(MessageTemplate.ALREADY_REQUESTED,)
+            bot.send_message(
+                chat.chat_id,
+                Emoji.WHITE_UP_POINTING_INDEX,
+                reply_to_message_id=first.message_id
+            )
+            create_first_request = False
+    if create_first_request:
+        message, warning = yadict.prepare_message(content)
+        if warning:
+            reply(message)
+        else:
+            request = Request.get_request(content=content)
+            reply_message = reply(message)
+            FirstRequest.create(
+                request=request,
+                chat=chat,
+                user=user,
+                message_id=reply_message.message_id
+            )
+
+
+@chatify
+@userify
+def translate_command(bot, update, args, **kwargs):
+    user = kwargs['user']
+    chat = kwargs['chat']
+    reply = partial(send_message, bot, update)
+    translate(args, user, chat, bot, reply)
 
 
 def handle_text(bot, update):
@@ -106,20 +156,21 @@ def handle_text(bot, update):
         parse_mode=ParseMode.MARKDOWN)
 
 
+@chatify
 @userify
 def handle_message_dialog(bot, update, answer, **kwargs):
     reply = partial(edit_message, bot, update)
     callback_data = update.callback_query.data
     content = decode_callback_data(callback_data)
     user = kwargs['user']
+    chat = kwargs['chat']
 
     if not content:
         reply(MessageTemplate.CALLBACK_DATA_MISSING)
 
     # translate request
     elif answer == AnswerOption.TRANSLATE:
-        chat_id = update.callback_query.message.chat_id
-        reply(yadict.prepare_message(content, user))
+        translate(content, user, chat, bot, reply)
 
     elif answer == AnswerOption.SKIP:
         reply(MessageTemplate.SKIP)
@@ -153,8 +204,8 @@ updater = Updater(config.Config.BTOKEN)
 
 updater.dispatcher.add_handler(CallbackQueryHandler(callback_handler))
 updater.dispatcher.add_handler(
-    CommandHandler('tr', handle_message, pass_args=True))
-updater.dispatcher.add_handler(CommandHandler('stats', stats))
+    CommandHandler('tr', translate_command, pass_args=True))
+# updater.dispatcher.add_handler(CommandHandler('stats', stats))
 updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_text))
 
 updater.start_polling()

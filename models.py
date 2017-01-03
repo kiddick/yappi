@@ -49,7 +49,6 @@ class Request(BaseModel):
     content = CharField(default='')
     raw = CharField(default='')
     counter = IntegerField(default=1)
-    user = ForeignKeyField(User, related_name='user_requests', db_column='user')
 
     @classmethod
     def get_request(cls, content):
@@ -64,7 +63,7 @@ class Request(BaseModel):
             return query[0]
 
     @classmethod
-    def statistics(cls):
+    def statistics(cls):  # TODO Fix this method
         subquery = (Request
                     .select(fn.COUNT(Request.id))
                     .where(Request.user == User.id))
@@ -80,9 +79,40 @@ class Request(BaseModel):
                 for user in query.aggregate_rows()}
 
 
+class Chat(BaseModel):
+    chat_id = IntegerField(default=0)
+
+    @classmethod
+    def create(cls, **query):
+        chat_query = Chat.select().where(Chat.chat_id == query['chat_id'])
+        if not chat_query:
+            return super().create(**query)
+        else:
+            return chat_query[0]
+
+
+class FirstRequest(BaseModel):
+    request = ForeignKeyField(Request, related_name='address', db_column='request')
+    chat = ForeignKeyField(Chat, related_name='first_requests', db_column='chat')
+    user = ForeignKeyField(User, related_name='user_requests', db_column='user')
+    message_id = IntegerField(default=0)
+
+    @classmethod
+    def get_first_request(cls, request, chat):
+        query = (FirstRequest
+                 .select()
+                 .where(
+                     (FirstRequest.request == request.id) &
+                     (FirstRequest.chat == chat.id))
+                 )
+        if not query:
+            return
+        return query[0]
+
+
 def create_tables():
     with db.transaction():
-        for model in [CallbackEntity, Request, User]:
+        for model in [CallbackEntity, Request, User, Chat, FirstRequest]:
             if not model.table_exists():
                 db.create_table(model)
 

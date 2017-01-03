@@ -9,7 +9,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 import yadict
 import config
 
-from models import CallbackEntity
+from models import CallbackEntity, Request, User
 
 if config.Config.DEBUG:
     logging.basicConfig(
@@ -33,6 +33,7 @@ class MessageTemplate(object):
     TRANSLATE = 'Would you like to translate it?'
     SKIP = 'Nevermind'
     CALLBACK_DATA_MISSING = 'Can\'t identify your request :('
+    USER_STATS_LINE = '*{}:* {}'
 
 
 def save_callback_data(data):
@@ -52,11 +53,25 @@ def decode_answer_option(callback_data):
     return callback_data.split('@')[0]
 
 
-def handle_message(bot, update, args):
+def userify(func):
+    def wrapper(*args, **kwargs):
+        update = args[1]
+        request = update.callback_query or update.message
+        tid = request.from_user.id
+        name = request.from_user.first_name
+        user = User.create(tid=tid, name=name)
+        kwargs['user'] = user
+        return func(*args, **kwargs)
+    return wrapper
+
+
+@userify
+def handle_message(bot, update, args, **kwargs):
+    user = kwargs['user']
     try:
         bot.sendMessage(
             update.message.chat_id,
-            yadict.prepare_message(args),
+            yadict.prepare_message(args, user),
             parse_mode=ParseMode.MARKDOWN
         )
     except Exception as err:
@@ -91,10 +106,12 @@ def handle_text(bot, update):
         parse_mode=ParseMode.MARKDOWN)
 
 
-def handle_message_dialog(bot, update, answer):
+@userify
+def handle_message_dialog(bot, update, answer, **kwargs):
     reply = partial(edit_message, bot, update)
     callback_data = update.callback_query.data
     content = decode_callback_data(callback_data)
+    user = kwargs['user']
 
     if not content:
         reply(MessageTemplate.CALLBACK_DATA_MISSING)
@@ -102,7 +119,7 @@ def handle_message_dialog(bot, update, answer):
     # translate request
     elif answer == AnswerOption.TRANSLATE:
         chat_id = update.callback_query.message.chat_id
-        reply(yadict.prepare_message(content))
+        reply(yadict.prepare_message(content, user))
 
     elif answer == AnswerOption.SKIP:
         reply(MessageTemplate.SKIP)
@@ -119,11 +136,25 @@ def callback_handler(bot, update):
         handle_message_dialog(bot, update, answer)
 
 
+def stats(bot, update):
+    stats_message = '\n'.join(
+        MessageTemplate.USER_STATS_LINE.format(k, v)
+        for k, v in Request.statistics().items()
+    )
+
+    bot.sendMessage(
+        update.message.chat_id,
+        stats_message,
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+
 updater = Updater(config.Config.BTOKEN)
 
 updater.dispatcher.add_handler(CallbackQueryHandler(callback_handler))
 updater.dispatcher.add_handler(
     CommandHandler('tr', handle_message, pass_args=True))
+updater.dispatcher.add_handler(CommandHandler('stats', stats))
 updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_text))
 
 updater.start_polling()

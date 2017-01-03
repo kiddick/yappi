@@ -1,6 +1,7 @@
 from peewee import *
 
 import config
+import exceptions
 
 DB_NAME = config.Config.DB_NAME
 
@@ -11,6 +12,19 @@ class BaseModel(Model):
 
     class Meta:
         database = db
+
+
+class User(BaseModel):
+    tid = IntegerField(unique=True)
+    name = CharField()
+
+    @classmethod
+    def create(cls, **query):
+        user_query = User.select().where(User.tid == query['tid'])
+        if not user_query:
+            return super().create(**query)
+        else:
+            return user_query[0]
 
 
 class CallbackEntity(BaseModel):
@@ -35,32 +49,40 @@ class Request(BaseModel):
     content = CharField(default='')
     raw = CharField(default='')
     counter = IntegerField(default=1)
+    user = ForeignKeyField(User, related_name='user_requests', db_column='user')
 
     @classmethod
-    def find_request(self, content):
-        try:
-            return Request.get(Request.content == content)
-        except DoesNotExist:
-            return None
+    def get_request(cls, content):
+        with db.transaction():
+            query = Request.select().where(Request.content == content.lower())
+            if not query:
+                return
+            if len(query) > 1:
+                raise exceptions.MultipleRecords
+            query[0].counter += 1
+            query[0].save()
+            return query[0]
 
     @classmethod
-    def create(self, content, raw):
-        request = Request.find_request(content)
-        if not request:
-            with db.transaction():
-                new_request = Request(content=content, raw=raw)
-                new_request.save()
-            return new_request
-        else:
-            with db.transaction():
-                request.counter += 1
-                request.save()
-            return request
+    def statistics(cls):
+        subquery = (Request
+                    .select(fn.COUNT(Request.id))
+                    .where(Request.user == User.id))
+        query = (User
+                 .select(User, Request, subquery.alias('request_count'))
+                 .join(Request, JOIN.LEFT_OUTER)
+                 .order_by(User.tid))
+
+        # for user in query.aggregate_rows():
+        #     print(user.name, user.request_count)\
+
+        return {user.name: user.request_count
+                for user in query.aggregate_rows()}
 
 
 def create_tables():
     with db.transaction():
-        for model in [CallbackEntity, Request]:
+        for model in [CallbackEntity, Request, User]:
             if not model.table_exists():
                 db.create_table(model)
 

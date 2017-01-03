@@ -2,6 +2,7 @@
 This module provides API functionality for yandex lingvo services.
 """
 
+import json
 import logging
 import requests
 
@@ -26,7 +27,7 @@ def answer_spellcheck(spellcheck, translate):
     return translate
 
 
-def prepare_message(msg):
+def prepare_message(msg, user):
     if not msg:
         return 'Your request is empty. Try again.'
     if isinstance(msg,  list):
@@ -44,7 +45,7 @@ def prepare_message(msg):
         logging.exception(str(err))
         spellcheck = None
     try:
-        translate = get_word(msg)
+        translate = get_word(msg, user)
     except Exception as err:
         logging.exception(str(err))
         translate = 'Sorry, something went wrong!'
@@ -57,15 +58,21 @@ def prepare_message(msg):
     return translate.format(msg)
 
 
-def get_word(src):
-    data = requests.get(
-        ENDPOINT + requests.compat.urlencode(
-            {'key': YKEY, 'lang': 'en-ru', 'text': src})
-    )
-    json_dump = data.json()
+def get_word(src, user):
+    request = Request.get_request(content=src)
+    if request:
+        data = request.raw
+        json_dump = json.loads(data)
+    else:
+        data = requests.get(
+            ENDPOINT + requests.compat.urlencode(
+                {'key': YKEY, 'lang': 'en-ru', 'text': src})
+        )
+        json_dump = data.json()
     if not json_dump['def']:
         return ''
-    Request.create(content=src, raw=data.text)
+    if not request:
+        Request.create(content=src, raw=data.text, user=user)
     res = ''
     delimeter = '\n'
     nbsp = u'\xa0'

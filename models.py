@@ -18,13 +18,9 @@ class User(BaseModel):
     tid = IntegerField(unique=True)
     name = CharField()
 
-    @classmethod
-    def create(cls, **query):
-        user_query = User.select().where(User.tid == query['tid'])
-        if not user_query:
-            return super().create(**query)
-        else:
-            return user_query[0]
+
+class Chat(BaseModel):
+    chat_id = IntegerField(default=0)
 
 
 class CallbackEntity(BaseModel):
@@ -77,18 +73,6 @@ class Request(BaseModel):
 
         return {user.name: user.request_count
                 for user in query.aggregate_rows()}
-
-
-class Chat(BaseModel):
-    chat_id = IntegerField(default=0)
-
-    @classmethod
-    def create(cls, **query):
-        chat_query = Chat.select().where(Chat.chat_id == query['chat_id'])
-        if not chat_query:
-            return super().create(**query)
-        else:
-            return chat_query[0]
 
 
 class FirstRequest(BaseModel):

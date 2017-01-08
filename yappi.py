@@ -2,7 +2,7 @@
 A main module with Yappi translator bot powered by Telegram Bot API.
 """
 
-from functools import partial
+from functools import partial, wraps
 import logging
 
 from telegram import InlineKeyboardButton as Button
@@ -12,7 +12,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 import yadict
 import config
 
-from models import CallbackEntity, Request, User, Chat, FirstRequest
+from models import db, CallbackEntity, Request, User, Chat, FirstRequest
 
 if config.Config.DEBUG:
     logging.basicConfig(
@@ -58,24 +58,27 @@ def decode_answer_option(callback_data):
 
 
 def userify(func):
+    @wraps(func)
+    @db.atomic()
     def wrapper(*args, **kwargs):
         update = args[1]
         request = update.callback_query or update.message
-        # update.callback_query.message.chat_id,
         tid = request.from_user.id
         name = request.from_user.first_name
-        user = User.create(tid=tid, name=name)
+        user, _ = User.get_or_create(tid=tid, name=name)
         kwargs['user'] = user
         return func(*args, **kwargs)
     return wrapper
 
 
 def chatify(func):
+    @wraps(func)
+    @db.atomic()
     def wrapper(*args, **kwargs):
         update = args[1]
         request = update.callback_query or update
         chat_id = request.message.chat_id
-        chat = Chat.create(chat_id=chat_id)
+        chat, _ = Chat.get_or_create(chat_id=chat_id)
         kwargs['chat'] = chat
         return func(*args, **kwargs)
     return wrapper

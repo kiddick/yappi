@@ -47,7 +47,6 @@ def normalize(data):
         data = 'tilde(s)'
     else:
         data = check
-
     return data
 
 
@@ -89,16 +88,19 @@ def format_dict_message(data):
     return res
 
 
+def dicservice_request(src):
+    request = requests.compat.urlencode(
+        {'key': YKEY, 'lang': 'en-ru', 'text': src})
+    return requests.get('{}{}'.format(ENDPOINT, request))
+
+
 def get_word(src):
     request = Request.get_request(content=src)
     if request:
         data = request.raw
         json_dump = json.loads(data)
     else:
-        data = requests.get(
-            ENDPOINT + requests.compat.urlencode(
-                {'key': YKEY, 'lang': 'en-ru', 'text': src})
-        )
+        data = dicservice_request(src)
         json_dump = data.json()
     defenition = json_dump['def']
     if not defenition:

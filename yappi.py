@@ -109,7 +109,7 @@ def translate(content, user, chat, bot, reply):
         first = FirstRequest.get_first_request(request, chat)
         if first:
             # reply_to_previous_message
-            reply(MessageTemplate.ALREADY_REQUESTED,)
+            reply(MessageTemplate.ALREADY_REQUESTED)
             bot.send_message(
                 chat.chat_id,
                 Emoji.WHITE_UP_POINTING_INDEX,

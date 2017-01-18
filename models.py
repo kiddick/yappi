@@ -84,20 +84,23 @@ class Message(BaseModel):
 
 
 class FirstRequest(BaseModel):
-    request = ForeignKeyField(Request, related_name='entity', db_column='request')
-    message = ForeignKeyField(Message, related_name='message', db_column='message')
+    request = ForeignKeyField(Request, related_name='fr_request', db_column='request')
+    chat = ForeignKeyField(Chat, related_name='fr_chat', db_column='chat')
+    user = ForeignKeyField(User, related_name='fr_user', db_column='user', unique=True)
+    message = ForeignKeyField(Message, related_name='fr_message', db_column='message')
 
-    # @classmethod
-    # def get_first_request(cls, request, chat):
-    #     query = (FirstRequest
-    #              .select()
-    #              .where(
-    #                  (FirstRequest.request == request.id) &
-    #                  (FirstRequest.chat == chat.id))
-    #              )
-    #     if not query:
-    #         return
-    #     return query[0]
+    @classmethod
+    def get_first_request(cls, content, chat, user):
+        query = (FirstRequest
+                 .select().join(Request)
+                 .where(
+                     (Request.content == content) &
+                     (FirstRequest.chat == chat.id) &
+                     (FirstRequest.user == user.id))
+                 )
+        if not query:
+            return
+        return query[0]
 
 
 def create_tables():

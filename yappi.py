@@ -12,7 +12,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryH
 import yadict
 import config
 
-from models import db, CallbackEntity, Request, User, Chat, FirstRequest
+from models import db, CallbackEntity, Request, User, Chat, FirstRequest, Message
 
 if config.Config.DEBUG:
     logging.basicConfig(
@@ -38,6 +38,7 @@ class MessageTemplate(object):
     CALLBACK_DATA_MISSING = 'Can\'t identify your request :('
     USER_STATS_LINE = '*{}:* {}'
     ALREADY_REQUESTED = 'You\'ve already requested that! :D'
+    CANT_FIND = 'Sorry, can\'t find anything for `{}`.'
 
 
 def save_callback_data(data):
@@ -84,6 +85,25 @@ def chatify(func):
     return wrapper
 
 
+def messagify(func):
+    @wraps(func)
+    @db.atomic()
+    def wrapper(*args, **kwargs):
+        update = args[1]
+        request = update.callback_query or update
+        message_id = request.message.message_id
+        time = request.message.to_dict()['date']
+        message = Message.create(
+            chat=kwargs['chat'],
+            user=kwargs['user'],
+            message_id=message_id,
+            time=time
+        )
+        kwargs['message'] = message
+        return func(*args, **kwargs)
+    return wrapper
+
+
 def edit_message(bot, update, text):
     return bot.edit_message_text(
         text=text,
@@ -101,43 +121,106 @@ def send_message(bot, update, text):
     )
 
 
-def translate(content, user, chat, bot, reply):
-    content, _ = yadict.check_spelling(yadict.normalize(content))
-    request = Request.get_request(content=content)
-    create_first_request = True
-    if request:
-        first = FirstRequest.get_first_request(request, chat)
-        if first:
-            # reply_to_previous_message
-            reply(MessageTemplate.ALREADY_REQUESTED)
-            bot.send_message(
-                chat.chat_id,
-                Emoji.WHITE_UP_POINTING_INDEX,
-                reply_to_message_id=first.message_id
-            )
-            create_first_request = False
-    if create_first_request:
-        message, warning = yadict.prepare_message(content)
-        if warning:
-            reply(message)
-        else:
-            request = Request.get_request(content=content)
-            reply_message = reply(message)
+@db.atomic()
+def translate(content, user, chat, message, bot, reply):
+    content, warning = yadict.normalize(content)
+    if warning:
+        reply(content)
+    fr_query = FirstRequest.get_first_request(
+        chat=chat, user=user, content=content)
+    if fr_query:
+        reply(MessageTemplate.ALREADY_REQUESTED)
+        bot.send_message(
+            chat.chat_id,
+            Emoji.WHITE_UP_POINTING_INDEX,
+            reply_to_message_id=fr_query.message.message_id
+        )
+    else:
+        request = Request.get_request(content=content)
+        if request:
+            answer = yadict.load_content_from_db(request)
+            reply_message = reply(answer)
+            message.request = request
+            message.save()
             FirstRequest.create(
                 request=request,
                 chat=chat,
                 user=user,
-                message_id=reply_message.message_id
+                message=reply_message.message_id
             )
+        else:
+            answer, created_request = yadict.load_content_from_api(content)
+            if not answer:
+                reply(MessageTemplate.CANT_FIND)
+            else:
+                reply_message = reply(answer)
+                message.request = created_request
+                message.save()
+                FirstRequest.create(
+                    request=created_request,
+                    chat=chat,
+                    user=user,
+                    message=reply_message.message_id
+                )
+
+    # content, _ = yadict.check_spelling(yadict.normalize(content))
+    # request, created = Request.get_or_create(content=content)
+    # if not created:
+    #     pass
+    # #     # link message with content
+    # #     # create FR
+    # #     # reply
+    # else:
+    #     fr_query = FirstRequest.get_first_request(
+    #         chat=chat, user=user, request=request)
+    #     if fr_query:
+    #         pass
+    # #         # reply
+    #     else:
+    #         message.request = request
+    #         message.save()
+    #         FirstRequest.create(
+    #             request=request, chat=chat, user=user, message=message)
+    #         message, warning = yadict.prepare_message(request, created)
+    # #         # reply
+
+    # request = Request.get_request(content=content)
+    # create_first_request = True
+    # if request:
+    #     first = FirstRequest.get_first_request(request, chat)
+    #     if first:
+    #         # reply_to_previous_message
+    #         reply(MessageTemplate.ALREADY_REQUESTED)
+    #         bot.send_message(
+    #             chat.chat_id,
+    #             Emoji.WHITE_UP_POINTING_INDEX,
+    #             reply_to_message_id=first.message_id
+    #         )
+    #         create_first_request = False
+    # if create_first_request:
+    #     message, warning = yadict.prepare_message(content)
+    #     if warning:
+    #         reply(message)
+    #     else:
+    #         request = Request.get_request(content=content)
+    #         reply_message = reply(message)
+    #         FirstRequest.create(
+    #             request=request,
+    #             chat=chat,
+    #             user=user,
+    #             message_id=reply_message.message_id
+    #         )
 
 
 @chatify
 @userify
+@messagify
 def translate_command(bot, update, args, **kwargs):
     user = kwargs['user']
     chat = kwargs['chat']
+    message = kwargs['message']
     reply = partial(send_message, bot, update)
-    translate(args, user, chat, bot, reply)
+    translate(args, user, chat, message, bot, reply)
 
 
 def handle_text(bot, update):
@@ -161,19 +244,21 @@ def handle_text(bot, update):
 
 @chatify
 @userify
+@messagify
 def handle_message_dialog(bot, update, answer, **kwargs):
     reply = partial(edit_message, bot, update)
     callback_data = update.callback_query.data
     content = decode_callback_data(callback_data)
     user = kwargs['user']
     chat = kwargs['chat']
+    message = kwargs['message']
 
     if not content:
         reply(MessageTemplate.CALLBACK_DATA_MISSING)
 
     # translate request
     elif answer == AnswerOption.TRANSLATE:
-        translate(content, user, chat, bot, reply)
+        translate(content, user, chat, message, bot, reply)
 
     elif answer == AnswerOption.SKIP:
         reply(MessageTemplate.SKIP)

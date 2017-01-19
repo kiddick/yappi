@@ -153,7 +153,7 @@ class TestModelCreation(TestCase):
 
             # check when there is no first request
             fr_request_query = FirstRequest.get_first_request(
-                chat=chat, user=user, request=request)
+                chat=chat, user=user, content='test')
             self.assertIsNone(fr_request_query)
 
             message.request = request
@@ -166,7 +166,7 @@ class TestModelCreation(TestCase):
 
             # not created
             fr_request_query = FirstRequest.get_first_request(
-                chat=chat, user=user, request=request)
+                chat=chat, user=user, content='test')
             self.assertIsNotNone(fr_request_query)
             self.assertEqual(fr_request_query.message, message)
 

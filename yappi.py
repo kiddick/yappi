@@ -160,7 +160,7 @@ def translate(content, user, chat, message, bot, reply):
                     request=created_request,
                     chat=chat,
                     user=user,
-                    message=reply_message.message_id
+                    message=message
                 )
 
     # content, _ = yadict.check_spelling(yadict.normalize(content))

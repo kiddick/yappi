@@ -91,10 +91,13 @@ class FirstRequest(BaseModel):
 
     @classmethod
     def get_first_request(cls, content, chat, user):
+        request = Request.get_request(content=content)
+        if not request:
+            return
         query = (FirstRequest
-                 .select().join(Request)
+                 .select()
                  .where(
-                     (Request.content == content) &
+                     (FirstRequest.request == request.id) &
                      (FirstRequest.chat == chat.id) &
                      (FirstRequest.user == user.id))
                  )

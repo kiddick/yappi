@@ -90,10 +90,10 @@ class FirstRequest(BaseModel):
     message = ForeignKeyField(Message, related_name='fr_message', db_column='message')
 
     @classmethod
-    def get_first_request(cls, content, chat, user):
+    def get_first_request_and_request(cls, content, chat, user):
         request = Request.get_request(content=content)
         if not request:
-            return
+            return None, None
         query = (FirstRequest
                  .select()
                  .where(
@@ -102,8 +102,8 @@ class FirstRequest(BaseModel):
                      (FirstRequest.user == user.id))
                  )
         if not query:
-            return
-        return query[0]
+            return None, request
+        return query[0], request
 
 
 def create_tables():

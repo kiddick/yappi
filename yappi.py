@@ -115,11 +115,21 @@ def send_message(bot, update, text):
 
 @db.atomic()
 def translate(content, user, chat, message, bot, reply):
+    def reply_and_save(request):
+        reply_message = reply(answer)
+        message.request = request
+        message.save()
+        FirstRequest.create(
+            request=request,
+            chat=chat,
+            user=user,
+            message=reply_message.message_id
+        )
     content, warning = yadict.normalize(content)
     if warning:
         reply(content)
         return
-    fr_query = FirstRequest.get_first_request(
+    fr_query, request = FirstRequest.get_first_request_and_request(
         chat=chat, user=user, content=content)
     if fr_query:
         reply(MessageTemplate.ALREADY_REQUESTED)
@@ -129,80 +139,15 @@ def translate(content, user, chat, message, bot, reply):
             reply_to_message_id=fr_query.message.message_id
         )
     else:
-        request = Request.get_request(content=content)
         if request:
             answer = yadict.load_content_from_db(request)
-            reply_message = reply(answer)
-            message.request = request
-            message.save()
-            FirstRequest.create(
-                request=request,
-                chat=chat,
-                user=user,
-                message=reply_message.message_id
-            )
+            reply_and_save(request)
         else:
             answer, created_request = yadict.load_content_from_api(content)
             if not answer:
                 reply(MessageTemplate.CANT_FIND.format(content))
             else:
-                reply_message = reply(answer)
-                message.request = created_request
-                message.save()
-                FirstRequest.create(
-                    request=created_request,
-                    chat=chat,
-                    user=user,
-                    message=message
-                )
-
-    # content, _ = yadict.check_spelling(yadict.normalize(content))
-    # request, created = Request.get_or_create(content=content)
-    # if not created:
-    #     pass
-    # #     # link message with content
-    # #     # create FR
-    # #     # reply
-    # else:
-    #     fr_query = FirstRequest.get_first_request(
-    #         chat=chat, user=user, request=request)
-    #     if fr_query:
-    #         pass
-    # #         # reply
-    #     else:
-    #         message.request = request
-    #         message.save()
-    #         FirstRequest.create(
-    #             request=request, chat=chat, user=user, message=message)
-    #         message, warning = yadict.prepare_message(request, created)
-    # #         # reply
-
-    # request = Request.get_request(content=content)
-    # create_first_request = True
-    # if request:
-    #     first = FirstRequest.get_first_request(request, chat)
-    #     if first:
-    #         # reply_to_previous_message
-    #         reply(MessageTemplate.ALREADY_REQUESTED)
-    #         bot.send_message(
-    #             chat.chat_id,
-    #             Emoji.WHITE_UP_POINTING_INDEX,
-    #             reply_to_message_id=first.message_id
-    #         )
-    #         create_first_request = False
-    # if create_first_request:
-    #     message, warning = yadict.prepare_message(content)
-    #     if warning:
-    #         reply(message)
-    #     else:
-    #         request = Request.get_request(content=content)
-    #         reply_message = reply(message)
-    #         FirstRequest.create(
-    #             request=request,
-    #             chat=chat,
-    #             user=user,
-    #             message_id=reply_message.message_id
-    #         )
+                reply_and_save(created_request)
 
 
 @chatify

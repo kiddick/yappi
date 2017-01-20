@@ -226,13 +226,14 @@ def stats(bot, update):
     )
 
 
-updater = Updater(config.Config.BTOKEN)
+if __name__ == '__main__':
+    updater = Updater(config.Config.BTOKEN)
 
-updater.dispatcher.add_handler(CallbackQueryHandler(callback_handler))
-updater.dispatcher.add_handler(
-    CommandHandler('tr', translate_command, pass_args=True))
-# updater.dispatcher.add_handler(CommandHandler('stats', stats))
-updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_text))
+    updater.dispatcher.add_handler(CallbackQueryHandler(callback_handler))
+    updater.dispatcher.add_handler(
+        CommandHandler('tr', translate_command, pass_args=True))
+    # updater.dispatcher.add_handler(CommandHandler('stats', stats))
+    updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_text))
 
-updater.start_polling()
-updater.idle()
+    updater.start_polling()
+    updater.idle()

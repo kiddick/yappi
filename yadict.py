@@ -10,6 +10,8 @@ import pyaspeller
 import config
 
 from models import Request
+from templates import MessageTemplate
+
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -42,12 +44,12 @@ def check_spelling(data):
 def normalize(data):
     warning = True
     if not data:
-        return 'Your request is empty. Try again.', warning
+        return MessageTemplate.EMPTY_REQUEST, warning
     if isinstance(data,  list):
         data = ' '.join(data)
     data = str(data).replace('`', '').lower()
     if not data:
-        return 'only tilde :(', warning
+        return MessageTemplate.ONLY_TILDE, warning
     else:
         warning = False
         return data, warning

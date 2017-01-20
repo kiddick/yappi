@@ -13,6 +13,7 @@ import yadict
 import config
 
 from models import db, CallbackEntity, Request, User, Chat, FirstRequest, Message
+from templates import MessageTemplate
 
 if config.Config.DEBUG:
     logging.basicConfig(
@@ -30,15 +31,6 @@ else:
 class AnswerOption(object):
     TRANSLATE = '1'
     SKIP = '2'
-
-
-class MessageTemplate(object):
-    TRANSLATE = 'Would you like to translate it?'
-    SKIP = 'Nevermind'
-    CALLBACK_DATA_MISSING = 'Can\'t identify your request :('
-    USER_STATS_LINE = '*{}:* {}'
-    ALREADY_REQUESTED = 'You\'ve already requested that! :D'
-    CANT_FIND = 'Sorry, can\'t find anything for `{}`.'
 
 
 def save_callback_data(data):
@@ -126,6 +118,7 @@ def translate(content, user, chat, message, bot, reply):
     content, warning = yadict.normalize(content)
     if warning:
         reply(content)
+        return
     fr_query = FirstRequest.get_first_request(
         chat=chat, user=user, content=content)
     if fr_query:
@@ -151,7 +144,7 @@ def translate(content, user, chat, message, bot, reply):
         else:
             answer, created_request = yadict.load_content_from_api(content)
             if not answer:
-                reply(MessageTemplate.CANT_FIND)
+                reply(MessageTemplate.CANT_FIND.format(content))
             else:
                 reply_message = reply(answer)
                 message.request = created_request

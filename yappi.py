@@ -15,17 +15,19 @@ import config
 from models import db, CallbackEntity, Request, User, Chat, FirstRequest, Message
 from templates import MessageTemplate
 
-if config.Config.DEBUG:
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.DEBUG
-    )
-else:
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.DEBUG,
-        filename='yappi.log'
-    )
+
+def logging_setup():
+    if config.Config.DEBUG:
+        logging.basicConfig(
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            level=logging.DEBUG
+        )
+    else:
+        logging.basicConfig(
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            level=logging.DEBUG,
+            filename='yappi.log'
+        )
 
 
 class AnswerOption(object):
@@ -227,6 +229,7 @@ def stats(bot, update):
 
 
 if __name__ == '__main__':
+    logging_setup()
     updater = Updater(config.Config.BTOKEN)
 
     updater.dispatcher.add_handler(CallbackQueryHandler(callback_handler))

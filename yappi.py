@@ -211,7 +211,12 @@ def handle_message_dialog(bot, update, answer, user_data):
         reply(MessageTemplate.SKIP)
 
 
-def callback_handler(bot, update, user_data):
+def callback_handler(bot, update, user_data, chat_data):
+    callback_query_message_id = update.callback_query.message.message_id
+    current_message = chat_data.get('current_message')
+    if current_message == callback_query_message_id:
+        return
+    chat_data['current_message'] = callback_query_message_id
     answer = decode_answer_option(update.callback_query.data)
 
     translate_answers = (
@@ -240,7 +245,12 @@ def main():
     updater = Updater(config.Config.BTOKEN)
 
     updater.dispatcher.add_handler(
-        CallbackQueryHandler(callback_handler, pass_user_data=True))
+        CallbackQueryHandler(
+            callback_handler,
+            pass_user_data=True,
+            pass_chat_data=True
+        )
+    )
     updater.dispatcher.add_handler(
         CommandHandler('tr', translate_command, pass_args=True))
     # updater.dispatcher.add_handler(CommandHandler('stats', stats))

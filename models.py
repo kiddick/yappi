@@ -88,6 +88,7 @@ class FirstRequest(BaseModel):
     chat = ForeignKeyField(Chat, related_name='fr_chat', db_column='chat')
     user = ForeignKeyField(User, related_name='fr_user', db_column='user', unique=True)
     message = ForeignKeyField(Message, related_name='fr_message', db_column='message')
+    reply_to = IntegerField(default=0)
 
     @classmethod
     def get_first_request_and_request(cls, content, chat, user):

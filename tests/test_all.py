@@ -124,6 +124,12 @@ class TestTranslate(TestCase):
                 chat=chat, user=user, message_id=1, time=1)
             bot = MagicMock()
             reply = MagicMock()
+            def dummy_reply(_):
+                reply_message = MagicMock()
+                reply_message.message_id = 2
+                return reply_message
+            reply.side_effect = dummy_reply
+            # print(reply.message_id)
 
             # test with empty content
             translate(
@@ -214,7 +220,7 @@ class TestTranslate(TestCase):
                     # chat=chat, user=user, content=content)
             # args, kwargs = bot.send_message.call_args
             reply_to_message_id = bot.send_message.call_args[1]['reply_to_message_id']
-            self.assertEqual(reply_to_message_id, 1)
+            self.assertEqual(reply_to_message_id, 2)
 
 
             # print(kwargs)

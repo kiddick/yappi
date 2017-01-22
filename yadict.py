@@ -5,6 +5,7 @@ This module provides API functionality for yandex lingvo services.
 import json
 import logging
 import requests
+import string
 
 import pyaspeller
 import config
@@ -47,15 +48,13 @@ def normalize(data):
         return MessageTemplate.EMPTY_REQUEST, warning
     if isinstance(data,  list):
         data = ' '.join(data)
-    data = str(data).replace('`', '').lower()
+    data = str(data).replace('`', '')
     if not data:
         return MessageTemplate.ONLY_TILDE, warning
     else:
         warning = False
-        return data, warning
-
-
-# translate = translate + u"Sorry, can't find anything for `{}`."
+        data = data.translate(str.maketrans('', '', string.punctuation))
+        return data.lower().strip(), warning
 
 
 def format_dict_message(data):

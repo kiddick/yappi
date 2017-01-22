@@ -125,7 +125,8 @@ def translate(content, user, chat, message, bot, reply):
             request=request,
             chat=chat,
             user=user,
-            message=reply_message.message_id
+            message=message,
+            reply_to=reply_message.message_id
         )
     content, warning = yadict.normalize(content)
     if warning:
@@ -138,7 +139,7 @@ def translate(content, user, chat, message, bot, reply):
         bot.send_message(
             chat.chat_id,
             Emoji.WHITE_UP_POINTING_INDEX,
-            reply_to_message_id=fr_query.message.message_id
+            reply_to_message_id=fr_query.reply_to
         )
     else:
         if request:
@@ -159,11 +160,19 @@ def translate_command(bot, update, args, **kwargs):
     user = kwargs['user']
     chat = kwargs['chat']
     message = kwargs['message']
+
     reply = partial(send_message, bot, update)
     translate(args, user, chat, message, bot, reply)
 
 
-def handle_text(bot, update):
+@chatify
+@userify
+@messagify
+def handle_text(bot, update, user_data, **kwargs):
+    user_data['user'] = kwargs['user']
+    user_data['chat'] = kwargs['chat']
+    user_data['message'] = kwargs['message']
+
     user_message = update.message.text
     data_id = save_callback_data(user_message)
     encode_translate = encode_callback_data(AnswerOption.TRANSLATE, data_id)
@@ -182,16 +191,17 @@ def handle_text(bot, update):
         parse_mode=ParseMode.MARKDOWN)
 
 
-@chatify
-@userify
-@messagify
-def handle_message_dialog(bot, update, answer, **kwargs):
+# @chatify
+# @userify
+# @messagify
+def handle_message_dialog(bot, update, answer, user_data, **kwargs):
+    user = user_data['user']
+    chat = user_data['chat']
+    message = user_data['message']
+
     reply = partial(edit_message, bot, update)
     callback_data = update.callback_query.data
     content = decode_callback_data(callback_data)
-    user = kwargs['user']
-    chat = kwargs['chat']
-    message = kwargs['message']
 
     if not content:
         reply(MessageTemplate.CALLBACK_DATA_MISSING)
@@ -204,7 +214,7 @@ def handle_message_dialog(bot, update, answer, **kwargs):
         reply(MessageTemplate.SKIP)
 
 
-def callback_handler(bot, update):
+def callback_handler(bot, update, user_data):
     answer = decode_answer_option(update.callback_query.data)
 
     translate_answers = (
@@ -212,7 +222,7 @@ def callback_handler(bot, update):
         AnswerOption.SKIP)
 
     if answer in translate_answers:
-        handle_message_dialog(bot, update, answer)
+        handle_message_dialog(bot, update, answer, user_data)
 
 
 def stats(bot, update):
@@ -228,15 +238,20 @@ def stats(bot, update):
     )
 
 
-if __name__ == '__main__':
+def main():
     logging_setup()
     updater = Updater(config.Config.BTOKEN)
 
-    updater.dispatcher.add_handler(CallbackQueryHandler(callback_handler))
+    updater.dispatcher.add_handler(
+        CallbackQueryHandler(callback_handler, pass_user_data=True))
     updater.dispatcher.add_handler(
         CommandHandler('tr', translate_command, pass_args=True))
     # updater.dispatcher.add_handler(CommandHandler('stats', stats))
-    updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_text))
+    updater.dispatcher.add_handler(
+        MessageHandler(Filters.text, handle_text, pass_user_data=True))
 
     updater.start_polling()
     updater.idle()
+
+if __name__ == '__main__':
+    main()

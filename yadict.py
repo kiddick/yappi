@@ -5,11 +5,14 @@ This module provides API functionality for yandex lingvo services.
 import json
 import logging
 import requests
+import string
 
 import pyaspeller
 import config
 
 from models import Request
+from templates import MessageTemplate
+
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -40,36 +43,18 @@ def check_spelling(data):
 
 
 def normalize(data):
+    warning = True
+    if not data:
+        return MessageTemplate.EMPTY_REQUEST, warning
     if isinstance(data,  list):
         data = ' '.join(data)
-    check = str(data).replace('`', '')
-    if not check:
-        data = 'tilde(s)'
+    data = str(data).replace('`', '')
+    if not data:
+        return MessageTemplate.ONLY_TILDE, warning
     else:
-        data = check
-    return data
-
-
-def prepare_message(msg):
-    warning = False
-    if not msg:
-        warning = True
-        return 'Your request is empty. Try again.', warning
-    msg, spellcheck = check_spelling(normalize(msg))
-    try:
-        translate = get_word(msg)
-    except Exception as err:
-        logging.exception(str(err))
-        translate = 'Sorry, something went wrong!'
-        warning = True
-    if not translate:
-        translate = answer_spellcheck(spellcheck, translate)
-        translate = translate + u"Sorry, can't find anything for `{}`."
-        warning = True
-    else:
-        translate = answer_spellcheck(spellcheck, translate)
-        translate = '`{}`\n' + translate
-    return translate.format(msg), warning
+        warning = False
+        data = data.translate(str.maketrans('', '', string.punctuation))
+        return data.lower().strip(), warning
 
 
 def format_dict_message(data):
@@ -94,20 +79,20 @@ def dicservice_request(src):
     return requests.get('{}{}'.format(ENDPOINT, request))
 
 
-def get_word(src):
-    request = Request.get_request(content=src)
-    if request:
-        data = request.raw
-        json_dump = json.loads(data)
-    else:
-        data = dicservice_request(src)
-        json_dump = data.json()
+def load_content_from_db(request):
+    data = request.raw
+    json_dump = json.loads(data)
+    return format_dict_message(json_dump['def'])
+
+
+def load_content_from_api(content):
+    data = dicservice_request(content)
+    json_dump = data.json()
     defenition = json_dump['def']
     if not defenition:
-        return ''
-    if not request:
-        request = Request.create(content=src, raw=data.text)
-    return format_dict_message(defenition)
+        return '', None
+    request = Request.create(content=content, raw=data.text)
+    return format_dict_message(defenition), request
 
 
 class Word(object):

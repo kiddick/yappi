@@ -191,10 +191,7 @@ def handle_text(bot, update, user_data, **kwargs):
         parse_mode=ParseMode.MARKDOWN)
 
 
-# @chatify
-# @userify
-# @messagify
-def handle_message_dialog(bot, update, answer, user_data, **kwargs):
+def handle_message_dialog(bot, update, answer, user_data):
     user = user_data['user']
     chat = user_data['chat']
     message = user_data['message']

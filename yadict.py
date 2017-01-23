@@ -64,8 +64,15 @@ def format_dict_message(data):
     for _, topic in enumerate(data):
         res += '_{0}_{1}'.format(topic['pos'], delimeter)
         for tr in topic['tr']:
-            res += u'*{nbsps}{text}*{delimeter}'.format(
-                nbsps=4 * nbsp, text=tr['text'], delimeter=delimeter)
+            res += '{nbsps}*{text}*'.format(nbsps=4 * nbsp, text=tr['text'])
+            if 'mean' in tr:
+                mean = ''
+                for m in tr['mean']:
+                    mean += '{m}; '.format(m=m['text'])
+                mean = '    `[{}]`'.format(mean.rstrip('; '))
+                res += mean + delimeter
+            else:
+                res += delimeter
             if 'ex' in tr:
                 res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
                     '//'.join([etr['text']

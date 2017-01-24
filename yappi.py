@@ -13,7 +13,7 @@ import yadict
 import config
 
 from models import db, CallbackEntity, Request, User, Chat, FirstRequest, Message
-from templates import MessageTemplate
+from templates import MessageTemplate, Translate
 
 
 def logging_setup():
@@ -118,8 +118,7 @@ def send_message(bot, update, text):
 @db.atomic()
 def translate(content, user, chat, message, bot, reply):
     def reply_and_save(request):
-        response = MessageTemplate.SUCCESS_RESPONSE.format(
-            caption=content, answer=answer)
+        response = Translate.HEAD.format(caption=content, answer=answer)
         reply_message = reply(response)
         message.request = request
         message.save()

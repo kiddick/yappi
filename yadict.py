@@ -11,7 +11,7 @@ import pyaspeller
 import config
 
 from models import Request
-from templates import MessageTemplate
+from templates import MessageTemplate, Translate
 
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -62,21 +62,29 @@ def format_dict_message(data):
     delimeter = '\n'
     nbsp = u'\xa0'
     for _, topic in enumerate(data):
-        res += '_{0}_{1}'.format(topic['pos'], delimeter)
+        res += Translate.POS.format(topic['pos'])
+        if 'ts' in topic:
+            res += Translate.TRANSCRIPTION.format(topic['ts'], delimeter)
+        else:
+            res += delimeter
         for tr in topic['tr']:
-            res += '{nbsps}*{text}*'.format(nbsps=4 * nbsp, text=tr['text'])
+            res += Translate.TRANSLATION.format(nbsps=4 * nbsp, text=tr['text'])
             if 'mean' in tr:
                 mean = ''
                 for m in tr['mean']:
-                    mean += '{m}; '.format(m=m['text'])
-                mean = '    `[{}]`'.format(mean.rstrip('; '))
-                res += mean + delimeter
+                    mean += Translate.MEANING_UNIT.format(m=m['text'])
+                mean = Translate.MEANING.format(mean.rstrip('; '), delimeter)
+                res += mean
             else:
                 res += delimeter
             if 'ex' in tr:
-                res += 8 * nbsp + tr['ex'][0]['text'] + ' --- ' + \
-                    '//'.join([etr['text']
-                               for etr in tr['ex'][0]['tr']]) + delimeter
+                tmp = Translate.EXAMPLE.format(
+                    nbsps=8 * nbsp,
+                    ex=tr['ex'][0]['text'],
+                    ex_tr='/ '.join([etr['text'] for etr in tr['ex'][0]['tr']]),
+                    delimeter=delimeter
+                )
+                res += tmp
     return res
 
 

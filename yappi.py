@@ -118,7 +118,9 @@ def send_message(bot, update, text):
 @db.atomic()
 def translate(content, user, chat, message, bot, reply):
     def reply_and_save(request):
-        reply_message = reply(answer)
+        response = MessageTemplate.SUCCESS_RESPONSE.format(
+            caption=content, answer=answer)
+        reply_message = reply(response)
         message.request = request
         message.save()
         FirstRequest.create(

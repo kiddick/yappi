@@ -7,3 +7,4 @@ class MessageTemplate(object):
     CANT_FIND = 'Sorry, can\'t find anything for `{}`.'
     EMPTY_REQUEST = 'Your request is empty. Try again.'
     ONLY_TILDE = 'There is only tilde, so check your input.'
+    SUCCESS_RESPONSE = '`>>> {caption}`\n{answer}'

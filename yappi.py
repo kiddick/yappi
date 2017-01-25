@@ -2,8 +2,11 @@
 A main module with Yappi translator bot powered by Telegram Bot API.
 """
 
-from functools import partial, wraps
 import logging
+import urllib
+
+from functools import partial, wraps
+from inspect import signature
 
 from telegram import InlineKeyboardButton as Button
 from telegram import Emoji, InlineKeyboardMarkup, ParseMode
@@ -28,6 +31,8 @@ def logging_setup():
             level=logging.DEBUG,
             filename='yappi.log'
         )
+
+FORWARD_URL = 'https://telegram.me/{fwd_bot}?start={fwd_url}'
 
 
 class AnswerOption(object):
@@ -98,19 +103,44 @@ def messagify(func):
     return wrapper
 
 
-def edit_message(bot, update, text):
+def forward(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            success = kwargs['success']
+        except KeyError:
+            success = signature(func).parameters.get('success').default
+        markup = None
+        if success:
+            try:
+                request = kwargs['request']
+            except KeyError:
+                raise ValueError('Successful request, but data is missing!')
+            url = FORWARD_URL.format(fwd_bot=config.Config.SR_BOT, fwd_url=urllib.parse.quote(request))
+            keyboard = [[Button('like', url=url)]]
+            markup = InlineKeyboardMarkup(keyboard)
+        kwargs['markup'] = markup
+        return func(*args, **kwargs)
+    return wrapper
+
+
+@forward
+def edit_message(bot, update, text, success=None, request=None, **kwargs):
     return bot.edit_message_text(
-        text=text,
         chat_id=update.callback_query.message.chat_id,
+        text=text,
         message_id=update.callback_query.message.message_id,
+        reply_markup=kwargs['markup'],
         parse_mode=ParseMode.MARKDOWN
     )
 
 
-def send_message(bot, update, text):
+@forward
+def send_message(bot, update, text, success=None, request=None, **kwargs):
     return bot.send_message(
         chat_id=update.message.chat_id,
         text=text,
+        reply_markup=kwargs['markup'],
         parse_mode=ParseMode.MARKDOWN
     )
 
@@ -119,7 +149,7 @@ def send_message(bot, update, text):
 def translate(content, user, chat, message, bot, reply):
     def reply_and_save(request):
         response = Translate.HEAD.format(caption=content, answer=answer)
-        reply_message = reply(response)
+        reply_message = reply(response, success=True, request=content)
         message.request = request
         message.save()
         FirstRequest.create(
@@ -136,7 +166,7 @@ def translate(content, user, chat, message, bot, reply):
     fr_query, request = FirstRequest.get_first_request_and_request(
         chat=chat, user=user, content=content)
     if fr_query:
-        reply(MessageTemplate.ALREADY_REQUESTED)
+        reply(MessageTemplate.ALREADY_REQUESTED, success=True, request=content)
         bot.send_message(
             chat.chat_id,
             Emoji.WHITE_UP_POINTING_INDEX,
@@ -222,7 +252,8 @@ def callback_handler(bot, update, user_data, chat_data):
 
     translate_answers = (
         AnswerOption.TRANSLATE,
-        AnswerOption.SKIP)
+        AnswerOption.SKIP
+    )
 
     if answer in translate_answers:
         handle_message_dialog(bot, update, answer, user_data)

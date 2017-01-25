@@ -13,4 +13,5 @@ class Config(object):
     DEBUG = settings['debug']
     BTOKEN = settings['bot_token']
     YKEY = settings['yandex_key']
-    DB_NAME= settings['db_name']
+    DB_NAME = settings['db_name']
+    SR_BOT = settings['spaced_repetition_bot']

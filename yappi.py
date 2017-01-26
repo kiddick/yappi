@@ -116,8 +116,11 @@ def forward(func):
                 request = kwargs['request']
             except KeyError:
                 raise ValueError('Successful request, but data is missing!')
-            url = FORWARD_URL.format(fwd_bot=config.Config.SR_BOT, fwd_url=urllib.parse.quote(request))
-            keyboard = [[Button('like', url=url)]]
+            url = FORWARD_URL.format(
+                fwd_bot=config.Config.SR_BOT,
+                fwd_url=urllib.parse.quote(request)
+            )
+            keyboard = [[Button(MessageTemplate.BOOKMARK, url=url)]]
             markup = InlineKeyboardMarkup(keyboard)
         kwargs['markup'] = markup
         return func(*args, **kwargs)

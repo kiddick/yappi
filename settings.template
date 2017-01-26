@@ -2,3 +2,5 @@ bot_token: bot_token
 yandex_key: dict.yandex_key
 db_name: 'dictionary.db'
 debug: True
+spaced_repetition_bot: 'spaced_repetition_bot'
+

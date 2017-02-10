@@ -263,10 +263,12 @@ def callback_handler(bot, update, user_data, chat_data):
 
 
 def stats(bot, update):
-    stats_message = '\n'.join(
-        MessageTemplate.USER_STATS_LINE.format(k, v)
-        for k, v in Request.statistics().items()
+    stats_message = 'Statistic:\n'
+    stats_message += ''.join(
+        MessageTemplate.USER_STATS_LINE.format(el[0], el[1])
+        for el in FirstRequest.statistics()
     )
+    stats_message += MessageTemplate.TOTAL_ENTITIES.format(len(Request.select()))
 
     bot.sendMessage(
         update.message.chat_id,
@@ -288,7 +290,7 @@ def main():
     )
     updater.dispatcher.add_handler(
         CommandHandler('tr', translate_command, pass_args=True))
-    # updater.dispatcher.add_handler(CommandHandler('stats', stats))
+    updater.dispatcher.add_handler(CommandHandler('stats', stats))
     updater.dispatcher.add_handler(
         MessageHandler(Filters.text, handle_text, pass_user_data=True))
 

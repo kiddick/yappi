@@ -58,22 +58,6 @@ class Request(BaseModel):
         query[0].save()
         return query[0]
 
-    @classmethod
-    def statistics(cls):  # TODO Fix this method
-        subquery = (Request
-                    .select(fn.COUNT(Request.id))
-                    .where(Request.user == User.id))
-        query = (User
-                 .select(User, Request, subquery.alias('request_count'))
-                 .join(Request, JOIN.LEFT_OUTER)
-                 .order_by(User.tid))
-
-        # for user in query.aggregate_rows():
-        #     print(user.name, user.request_count)\
-
-        return {user.name: user.request_count
-                for user in query.aggregate_rows()}
-
 
 class Message(BaseModel):
     chat = ForeignKeyField(Chat, related_name='chat', db_column='chat')
@@ -105,6 +89,19 @@ class FirstRequest(BaseModel):
         if not query:
             return None, request
         return query[0], request
+
+    @classmethod
+    def statistics(cls):
+        query = (
+            User
+            .select(User.name, fn.COUNT(FirstRequest.id).alias('num_requests'))
+            .join(FirstRequest, JOIN.LEFT_OUTER)
+            .group_by(User.name)
+            .order_by(SQL('num_requests').desc())
+        )
+
+        return [(user.name, user.num_requests)
+                for user in query.aggregate_rows()]
 
 
 def create_tables():
